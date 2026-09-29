@@ -1,0 +1,266 @@
+<title>해커스 단어장 요약기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one study column — upload strip on top, then a ruled word list like a vocab book page */
+:root {
+  --paper: #f5f7fa;
+  --sheet: #ffffff;
+  --ink: #1b2436;
+  --muted: #5d6679;
+  --rule: #dde2ea;
+  --accent: #23407a;
+  --mark: #ffe46b;
+  --mark-ink: #1b2436;
+  --danger: #b3261e;
+  --display: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #11151d; --sheet: #181e29; --ink: #e6e9f0; --muted: #98a1b3; --rule: #2a3242;
+    --accent: #9db8f0; --mark: #e0c43f; --mark-ink: #11151d; --danger: #ff8a80; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #11151d; --sheet: #181e29; --ink: #e6e9f0; --muted: #98a1b3; --rule: #2a3242;
+  --accent: #9db8f0; --mark: #e0c43f; --mark-ink: #11151d; --danger: #ff8a80; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 22px; }
+header h1 { font-family: var(--display); font-weight: 700; font-size: clamp(28px, 6vw, 40px); line-height: 1.1; margin: 0; text-wrap: balance; }
+header h1 .hl { background: linear-gradient(transparent 55%, var(--mark) 55%); color: inherit; padding: 0 2px; }
+header p { margin: 8px 0 0; color: var(--muted); max-width: 60ch; }
+
+.drop { border: 2px dashed var(--rule); border-radius: 12px; background: var(--sheet); padding: 22px 18px; display: grid; gap: 12px; justify-items: start; transition: border-color .15s; }
+.drop.over { border-color: var(--accent); }
+.drop strong { font-size: 16px; }
+.drop small { color: var(--muted); }
+.thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.thumbs figure { margin: 0; position: relative; }
+.thumbs img { width: 72px; height: 96px; object-fit: cover; border-radius: 6px; border: 1px solid var(--rule); display: block; }
+.thumbs button { position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: var(--ink); color: var(--sheet); font-size: 13px; line-height: 22px; padding: 0; cursor: pointer; }
+
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.btn { font: inherit; font-weight: 500; border-radius: 8px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--sheet); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn:focus-visible, label.chk:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+label.chk { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); cursor: pointer; }
+.status { color: var(--muted); font-size: 14px; min-height: 1.5em; }
+.status.err { color: var(--danger); }
+
+.list { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+.list-head { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.list-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.count { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.badge { font-size: 12px; font-weight: 500; background: var(--mark); color: var(--mark-ink); border-radius: 4px; padding: 1px 6px; margin-left: 6px; }
+ol { list-style: none; margin: 0; padding: 0; }
+li { display: grid; grid-template-columns: 2.6em minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--rule); align-items: baseline; }
+li:last-child { border-bottom: 0; }
+.num { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.word { font-family: var(--display); font-weight: 700; font-size: 19px; overflow-wrap: anywhere; }
+.word .pos { font-family: var(--body); font-weight: 500; font-size: 12px; color: var(--accent); margin-left: 6px; }
+.mean { overflow-wrap: anywhere; }
+.hide-mean .mean { color: transparent; background: var(--rule); border-radius: 4px; cursor: pointer; user-select: none; }
+.hide-mean .mean.show { color: inherit; background: transparent; }
+.empty { padding: 28px 16px; color: var(--muted); text-align: center; }
+@media (max-width: 480px) {
+  li { grid-template-columns: 2.2em minmax(0, 1fr); }
+  .mean { grid-column: 2; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>해커스 보카 <span class="hl">단어만</span> 뽑기</h1>
+    <p>단어장 페이지 사진을 올리면 표제어와 한국어 뜻만 골라서 정리해 줍니다. 예문, 발음기호, 해설은 빠집니다.</p>
+  </header>
+
+  <section class="drop" id="drop">
+    <strong>페이지 사진 올리기</strong>
+    <small>사진을 여러 장 골라도 됩니다. 한 장씩 순서대로 읽습니다. 캡처를 붙여넣기(⌘V)해도 됩니다.</small>
+    <div class="thumbs" id="thumbs"></div>
+    <div class="row">
+      <label class="btn" for="file">사진 선택</label>
+      <input id="file" type="file" accept="image/*" multiple hidden>
+      <button class="btn primary" id="run" disabled>단어 추출</button>
+      <button class="btn" id="stop" hidden>중지</button>
+      <label class="chk"><input type="checkbox" id="syn"> 파생어·동의어도 포함</label>
+    </div>
+    <div class="status" id="status" role="status"></div>
+  </section>
+
+  <section class="list" id="listBox">
+    <div class="list-head">
+      <h2>단어 목록 <span class="badge" id="sampleBadge">예시</span> <span class="count" id="count"></span></h2>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="hide"> 뜻 가리기</label>
+        <button class="btn" id="copy">복사</button>
+        <button class="btn" id="csv" hidden>CSV 저장</button>
+        <button class="btn" id="clear">비우기</button>
+      </div>
+    </div>
+    <ol id="list"></ol>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const SAMPLE = [
+    { word: "abandon", pos: "v", meaning: "버리다, 포기하다" },
+    { word: "abundant", pos: "adj", meaning: "풍부한" },
+    { word: "accommodate", pos: "v", meaning: "수용하다, 숙박시키다" },
+    { word: "acquire", pos: "v", meaning: "얻다, 습득하다" },
+    { word: "adequate", pos: "adj", meaning: "적절한, 충분한" }
+  ];
+  const KEY = "hv-words-v1";
+  let rows = [], isSample = true, files = [], sample = null, downloads = null, ctl = null;
+
+  try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (Array.isArray(saved) && saved.length) { rows = saved; isSample = false; } } catch (e) {}
+  if (isSample) rows = SAMPLE.slice();
+
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(isSample ? [] : rows)); } catch (e) {} };
+
+  function render() {
+    const list = $("list");
+    list.textContent = "";
+    $("sampleBadge").hidden = !isSample;
+    $("count").textContent = rows.length ? rows.length + "개" : "";
+    if (!rows.length) {
+      const li = document.createElement("div");
+      li.className = "empty"; li.textContent = "아직 단어가 없습니다. 위에서 페이지 사진을 올려 주세요.";
+      list.appendChild(li); return;
+    }
+    rows.forEach((r, i) => {
+      const li = document.createElement("li");
+      const n = document.createElement("span"); n.className = "num"; n.textContent = String(i + 1).padStart(2, "0");
+      const w = document.createElement("span"); w.className = "word"; w.textContent = r.word;
+      if (r.pos) { const p = document.createElement("span"); p.className = "pos"; p.textContent = r.pos; w.appendChild(p); }
+      const m = document.createElement("span"); m.className = "mean"; m.textContent = r.meaning;
+      m.addEventListener("click", () => m.classList.toggle("show"));
+      li.append(n, w, m); list.appendChild(li);
+    });
+  }
+
+  function status(msg, err) { const s = $("status"); s.textContent = msg; s.classList.toggle("err", !!err); }
+
+  function addFiles(list) {
+    for (const f of list) if (f.type.startsWith("image/")) files.push(f);
+    drawThumbs();
+  }
+  function drawThumbs() {
+    const t = $("thumbs"); t.textContent = "";
+    files.forEach((f, i) => {
+      const fig = document.createElement("figure");
+      const img = document.createElement("img"); img.src = URL.createObjectURL(f); img.alt = "페이지 " + (i + 1);
+      const x = document.createElement("button"); x.textContent = "×"; x.setAttribute("aria-label", "사진 빼기");
+      x.onclick = () => { files.splice(i, 1); drawThumbs(); };
+      fig.append(img, x); t.appendChild(fig);
+    });
+    $("run").disabled = !files.length || !sample;
+  }
+
+  $("file").addEventListener("change", e => { addFiles(e.target.files); e.target.value = ""; });
+  const drop = $("drop");
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); addFiles(e.dataTransfer.files); });
+  document.addEventListener("paste", e => { const fs = [...(e.clipboardData?.files || [])]; if (fs.length) addFiles(fs); });
+
+  function prompt(withSyn) {
+    return [
+      "이 사진은 해커스 보카(Hackers Voca) 영어 단어장의 한 페이지입니다.",
+      "페이지에 나온 표제어(번호가 붙은 굵은 영어 단어)와 그 한국어 뜻만 뽑아 주세요.",
+      withSyn
+        ? "표제어 아래에 나온 파생어와 동의어도 각각 별도 항목으로 넣어 주세요. 뜻이 적혀 있지 않으면 한국어 뜻을 짧게 채워 주세요."
+        : "파생어, 동의어, 예문, 발음기호, 해설은 넣지 마세요.",
+      "뜻은 책에 적힌 한국어 뜻을 그대로 쓰고, 뜻이 여러 개면 쉼표로 이어 주세요.",
+      "품사는 n, v, adj, adv, prep, conj 같은 약어로 쓰고, 모르면 빈 문자열로 두세요.",
+      "페이지에 나온 순서대로, 다른 말 없이 JSON 배열만 답하세요.",
+      '형식 예시: [{"word":"abandon","pos":"v","meaning":"버리다, 포기하다"}]',
+      "단어장 페이지가 아니거나 읽을 수 없으면 [] 로 답하세요."
+    ].join("\n");
+  }
+
+  const ERR = {
+    not_granted: "Claude 사용을 허용해야 단어를 읽을 수 있습니다.",
+    rate_limited: "요청이 너무 많습니다. 잠시 후 다시 눌러 주세요.",
+    image_rejected: "이 사진은 읽을 수 없습니다. JPG나 PNG로 다시 올려 주세요.",
+    images_unavailable: "이 화면에서는 사진을 보낼 수 없습니다. claude.ai 앱이나 브라우저에서 열어 주세요.",
+    invalid_json: "결과를 정리하지 못했습니다. 다시 한 번 눌러 주세요.",
+    session_expired: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
+    refused: "이 사진은 처리할 수 없습니다."
+  };
+
+  $("run").addEventListener("click", async () => {
+    if (!sample || !files.length) return;
+    const todo = files.slice();
+    const withSyn = $("syn").checked;
+    $("run").disabled = true; $("stop").hidden = false;
+    let added = 0;
+    for (let i = 0; i < todo.length; i++) {
+      ctl = new AbortController();
+      status(`${todo.length}장 중 ${i + 1}번째 페이지 읽는 중… (10–40초 걸립니다)`);
+      try {
+        const out = await sample.json(prompt(withSyn), { images: todo[i], signal: ctl.signal });
+        const clean = (Array.isArray(out) ? out : [])
+          .filter(o => o && o.word && o.meaning)
+          .map(o => ({ word: String(o.word).trim(), pos: String(o.pos || "").trim(), meaning: String(o.meaning).trim() }));
+        if (isSample) { rows = []; isSample = false; }
+        rows.push(...clean); added += clean.length;
+        files.splice(files.indexOf(todo[i]), 1);
+        save(); render(); drawThumbs();
+      } catch (e) {
+        if (e.code === "cancelled") { status(`중지했습니다. 단어 ${added}개를 추가했습니다.`); break; }
+        status((ERR[e.code] || "연결에 문제가 있었습니다. 다시 눌러 주세요.") + (added ? ` (그 전까지 ${added}개 추가됨)` : ""), true);
+        if (e.code === "not_granted" || e.code === "images_unavailable") sample = null;
+        break;
+      }
+      if (i === todo.length - 1) status(`완료! 단어 ${added}개를 추가했습니다.`);
+    }
+    ctl = null; $("stop").hidden = true; drawThumbs();
+  });
+  $("stop").addEventListener("click", () => ctl?.abort());
+
+  $("hide").addEventListener("change", e => $("listBox").classList.toggle("hide-mean", e.target.checked));
+
+  const asText = () => rows.map(r => `${r.word}\t${r.meaning}`).join("\n");
+  $("copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(asText()); status("복사했습니다. 메모장이나 퀴즐렛에 붙여넣으세요."); }
+    catch (e) {
+      const range = document.createRange(); range.selectNodeContents($("list"));
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      status("복사가 막혀 있어 목록을 선택해 두었습니다. 직접 복사해 주세요.");
+    }
+  });
+  $("csv").addEventListener("click", async () => {
+    const q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const data = "﻿" + ["word,pos,meaning", ...rows.map(r => [r.word, r.pos, r.meaning].map(q).join(","))].join("\n");
+    try { await downloads.save({ filename: "hackers-voca.csv", data }); } catch (e) { status("저장을 취소했거나 저장할 수 없습니다."); }
+  });
+  $("clear").addEventListener("click", () => {
+    if ($("clear").dataset.armed) { rows = []; isSample = false; save(); render(); status("목록을 비웠습니다."); delete $("clear").dataset.armed; $("clear").textContent = "비우기"; return; }
+    $("clear").dataset.armed = "1"; $("clear").textContent = "정말 비울까요?";
+    setTimeout(() => { delete $("clear").dataset.armed; $("clear").textContent = "비우기"; }, 3000);
+  });
+
+  render();
+
+  (async () => {
+    if (!window.claude?.use) { status("claude.ai에서 열어야 사진을 읽을 수 있습니다.", true); return; }
+    sample = await window.claude.use("sample");
+    downloads = await window.claude.use("downloads");
+    $("csv").hidden = !downloads;
+    if (!sample) { status("이 화면에서는 Claude를 쓸 수 없습니다. claude.ai에서 열어 주세요.", true); return; }
+    const caps = await sample.limits().catch(() => null);
+    if (!caps?.images) { sample = null; status("이 화면에서는 사진을 보낼 수 없습니다.", true); return; }
+    drawThumbs();
+  })();
+})();
+</script>
